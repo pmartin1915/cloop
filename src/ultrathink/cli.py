@@ -7,9 +7,17 @@ Ultrathink framework.
 import argparse
 import asyncio
 import json
+import logging
 from pathlib import Path
 
 from .framework import Ultrathink
+from .scaffolding import PythonScaffolder
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 
 async def main() -> None:
@@ -20,7 +28,7 @@ async def main() -> None:
 
     parser.add_argument(
         "command",
-        choices=["init", "analyze", "improve", "evolve", "test", "stats"],
+        choices=["init", "analyze", "improve", "evolve", "test", "stats", "scaffold"],
         help="Command to execute"
     )
 
@@ -38,9 +46,75 @@ async def main() -> None:
         help="Config file path (default: ultrathink.yaml)"
     )
 
+    # Scaffold-specific arguments
+    parser.add_argument(
+        "--name",
+        type=str,
+        help="Project name for scaffolding (required for scaffold command)"
+    )
+
+    parser.add_argument(
+        "--author",
+        type=str,
+        default="Your Name",
+        help="Author name for scaffolded project"
+    )
+
+    parser.add_argument(
+        "--email",
+        type=str,
+        default="you@example.com",
+        help="Author email for scaffolded project"
+    )
+
+    parser.add_argument(
+        "--description",
+        type=str,
+        default="A FastAPI application",
+        help="Project description for scaffolded project"
+    )
+
     args = parser.parse_args()
 
-    # Initialize framework
+    # Handle scaffold command separately (doesn't need framework init)
+    if args.command == "scaffold":
+        if not args.name:
+            parser.error("--name is required for scaffold command")
+
+        print(f"Scaffolding new FastAPI project: {args.name}")
+        scaffolder = PythonScaffolder()
+
+        try:
+            project_path = scaffolder.scaffold(
+                project_name=args.name,
+                output_dir=args.path,
+                author_name=args.author,
+                author_email=args.email,
+                description=args.description
+            )
+
+            print(f"\n[SUCCESS] Project scaffolded successfully!")
+            print(f"Location: {project_path.absolute()}")
+            print(f"\nNext steps:")
+            print(f"   cd {args.name}")
+            print(f"   poetry install")
+            print(f"   poetry run {args.name}")
+            print(f"\nDocumentation: http://localhost:8000/docs")
+
+        except ValueError as e:
+            print(f"[ERROR] {e}")
+            return
+        except FileExistsError as e:
+            print(f"[ERROR] {e}")
+            return
+        except Exception as e:
+            print(f"[ERROR] Unexpected error: {e}")
+            logging.exception("Scaffolding failed")
+            return
+
+        return
+
+    # Initialize framework for other commands
     ultrathink = Ultrathink(args.config)
 
     # Execute command
