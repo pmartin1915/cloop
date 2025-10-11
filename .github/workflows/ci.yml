@@ -1,0 +1,67 @@
+# Ultrathink CI/CD Pipeline
+name: Ultrathink CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Poetry
+      run: |
+        pip install poetry
+        poetry config virtualenvs.create false --local
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Install dependencies
+      run: poetry install
+
+    - name: Lint with Ruff
+      run: |
+        poetry run ruff check src/
+
+    - name: Test with pytest
+      run: poetry run pytest -v
+
+    - name: Check code style
+      run: poetry run ruff check --output-format=github src/
+
+    - name: Display test coverage (if available)
+      run: |
+        if [ -f .coverage ]; then
+          poetry run coverage report
+        fi
+      continue-on-error: true
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Run security checks
+      run: |
+        pip install safety
+        safety check --file=pyproject.toml || true
+      continue-on-error: true

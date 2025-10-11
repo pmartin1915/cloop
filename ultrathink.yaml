@@ -1,0 +1,43 @@
+# Ultrathink Configuration File
+version: "1.0"
+
+# Self-Improvement Engine Configuration
+evolution:
+  enabled: true
+  generation_interval: 86400  # 24 hours in seconds
+  max_iterations: 5
+
+  # Fitness function weights for architecture evolution
+  fitness_weights:
+    performance: 0.3
+    maintainability: 0.3
+    security: 0.2
+    scalability: 0.2
+
+# Quality thresholds for self-improvement
+quality_thresholds:
+  complexity: 0.7
+  readability: 0.8
+  performance: 0.7
+  security: 0.9
+  test_coverage: 0.8
+
+# Learning and knowledge management
+learning:
+  learning_rate: 0.1
+  pattern_similarity_threshold: 0.7
+  knowledge_base_path: "ultrathink.db"
+
+# Supported languages for parsing
+languages:
+  - python
+  - javascript
+  - typescript
+  - rust
+  - go
+  - java
+
+# Logging configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

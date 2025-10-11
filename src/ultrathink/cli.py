@@ -4,10 +4,11 @@ Command-line interface for Ultrathink.
 This module provides the CLI entry point and user interaction for the
 Ultrathink framework.
 """
-import asyncio
 import argparse
+import asyncio
+import json
 from pathlib import Path
-from typing import Optional
+
 from .framework import Ultrathink
 
 
@@ -19,37 +20,28 @@ async def main() -> None:
 
     parser.add_argument(
         "command",
-        choices=["init", "analyze", "improve", "stats"],
+        choices=["init", "analyze", "improve", "evolve", "test", "stats"],
         help="Command to execute"
     )
 
     parser.add_argument(
-        "--project-path",
+        "--path",
         type=str,
         default=".",
-        help="Path to the project (default: current directory)"
+        help="Path to code/project (default: current directory)"
     )
 
     parser.add_argument(
-        "--paths",
+        "--config",
         type=str,
-        nargs="+",
-        help="Specific paths to analyze or improve"
-    )
-
-    parser.add_argument(
-        "--knowledge-base",
-        type=str,
-        help="Path to knowledge base storage"
+        default="ultrathink.yaml",
+        help="Config file path (default: ultrathink.yaml)"
     )
 
     args = parser.parse_args()
 
-    # Initialize Ultrathink framework
-    ultrathink = Ultrathink(
-        project_path=args.project_path,
-        knowledge_base_path=args.knowledge_base
-    )
+    # Initialize framework
+    ultrathink = Ultrathink(args.config)
 
     # Execute command
     if args.command == "init":
@@ -57,24 +49,28 @@ async def main() -> None:
         print("Ultrathink framework initialized successfully!")
 
     elif args.command == "analyze":
-        print("Analyzing codebase...")
-        ultrathink.initialize()
-        results = ultrathink.analyze(args.paths)
-        print(f"Analysis complete:")
-        print(f"  - Findings: {results['findings_count']}")
-        print(f"  - Suggestions: {results['suggestions_count']}")
-        print(f"  - Confidence: {results['confidence']:.2%}")
+        print(f"Analyzing codebase at {args.path}...")
+        result = await ultrathink.analyze_codebase(args.path)
+        print(json.dumps(result, indent=2))
+
+    elif args.command == "evolve":
+        print(f"Evolving architecture for {args.path}...")
+        result = await ultrathink.evolve_architecture(args.path)
+        print("Architecture Evolution Results:")
+        print(json.dumps(result, indent=2))
+
+    elif args.command == "test":
+        print(f"Generating tests for {args.path}...")
+        code = Path(args.path).read_text()
+        tests = await ultrathink.generate_tests(code)
+        print(f"Generated Tests:\n{tests}")
 
     elif args.command == "improve":
-        print("Running self-improvement cycle...")
-        ultrathink.initialize()
-        results = ultrathink.improve(args.paths)
-        print(f"Improvement cycle complete:")
-        print(f"  - Cycle number: {results['cycle_number']}")
-        print(f"  - Hypotheses generated: {results['hypotheses_generated']}")
-        print(f"  - Hypotheses validated: {results['hypotheses_validated']}")
-        print(f"  - Improvements applied: {results['improvements_applied']}")
-        ultrathink.save_knowledge()
+        print(f"Running self-improvement for {args.path}...")
+        improved = await ultrathink.self_improve(args.path)
+        print(f"Self-improvement complete for {args.path}")
+        if improved.metadata:
+            print(f"Improvements: {json.dumps(improved.metadata.get('improvements', []), indent=2)}")
 
     elif args.command == "stats":
         ultrathink.initialize()
