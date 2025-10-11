@@ -1,0 +1,21 @@
+[project]
+name = "ultrathink"
+version = "0.1.0"
+description = "Self-Improving Development Framework with AI assistance"
+authors = [
+    {name = "PerryHMartin",email = "134838634+PerryHMartin@users.noreply.github.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+]
+
+[project.scripts]
+ultrathink = "ultrathink.cli:run"
+
+[tool.poetry]
+packages = [{include = "ultrathink", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
