@@ -63,18 +63,36 @@ class Ultrathink:
         results = []
 
         for file_path in Path(path).rglob("*.py"):  # Start with Python
-            code = file_path.read_text()
+            try:
+                code = file_path.read_text(encoding='utf-8')
 
-            # Run analysis
-            analysis = await self.orchestrator.route_task(
-                TaskType.CODE_REVIEW,
-                {"code": code, "language": "python"}
-            )
+                # Parse the code first
+                parse_result = self.parser.parse(code, language="python")
 
-            results.append({
-                "file": str(file_path),
-                "analysis": asdict(analysis)
-            })
+                # Run AI analysis with parse metadata
+                analysis = await self.orchestrator.route_task(
+                    TaskType.CODE_REVIEW,
+                    {
+                        "code": code,
+                        "language": "python",
+                        "parse_metadata": parse_result
+                    }
+                )
+
+                results.append({
+                    "file": str(file_path),
+                    "parse_info": parse_result,
+                    "analysis": asdict(analysis)
+                })
+
+                logger.info(f"Analyzed {file_path}: {len(analysis.findings)} findings")
+
+            except Exception as e:
+                logger.error(f"Failed to analyze {file_path}: {e}")
+                results.append({
+                    "file": str(file_path),
+                    "error": str(e)
+                })
 
         return {"results": results, "summary": self._generate_summary(results)}
 
@@ -145,13 +163,33 @@ class Ultrathink:
 
     def _generate_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Generate summary of analysis results"""
-        total_issues = sum(len(r['analysis']['findings']) for r in results)
+        total_issues = 0
+        severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+        category_counts = {}
+
+        for r in results:
+            if 'analysis' in r and 'findings' in r['analysis']:
+                findings = r['analysis']['findings']
+                total_issues += len(findings)
+
+                for finding in findings:
+                    # Count by severity
+                    severity = finding.get('severity', 'info')
+                    if severity in severity_counts:
+                        severity_counts[severity] += 1
+
+                    # Count by category
+                    category = finding.get('category', 'unknown')
+                    category_counts[category] = category_counts.get(category, 0) + 1
 
         return {
             "files_analyzed": len(results),
+            "files_with_errors": sum(1 for r in results if 'error' in r),
             "total_issues": total_issues,
-            "critical_issues": 0,  # Would calculate from actual results
-            "suggested_improvements": total_issues
+            "severity_breakdown": severity_counts,
+            "category_breakdown": category_counts,
+            "critical_issues": severity_counts["critical"],
+            "high_priority_issues": severity_counts["high"],
         }
 
     def initialize(self) -> None:

@@ -1,9 +1,10 @@
 """
 Tests for the Ultrathink framework.
 """
+
 import pytest
-from pathlib import Path
-from ultrathink import Ultrathink, AIModel, TaskType, CodeChange
+
+from ultrathink import AIModel, CodeChange, TaskType, Ultrathink
 
 
 def test_framework_initialization(tmp_path):
@@ -31,7 +32,7 @@ evolution:
 
     framework = Ultrathink(str(config_file))
     assert framework.config['version'] == '1.0'
-    assert framework.config['evolution']['enabled'] == True
+    assert framework.config['evolution']['enabled'] is True
     assert framework.config['evolution']['max_iterations'] == 10
 
 
@@ -92,8 +93,8 @@ async def test_generate_tests_basic():
     """Test test generation with basic code"""
     framework = Ultrathink()
 
-    code = "def add(a, b):\n    return a + b"
     # This will fail without API keys, but tests the structure
+    # code = "def add(a, b):\n    return a + b"
     # result = await framework.generate_tests(code, "python")
     # For now, just test that the method exists
     assert hasattr(framework, 'generate_tests')

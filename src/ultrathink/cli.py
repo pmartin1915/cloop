@@ -93,13 +93,13 @@ async def main() -> None:
                 description=args.description
             )
 
-            print(f"\n[SUCCESS] Project scaffolded successfully!")
+            print("\n[SUCCESS] Project scaffolded successfully!")
             print(f"Location: {project_path.absolute()}")
-            print(f"\nNext steps:")
+            print("\nNext steps:")
             print(f"   cd {args.name}")
-            print(f"   poetry install")
+            print("   poetry install")
             print(f"   poetry run {args.name}")
-            print(f"\nDocumentation: http://localhost:8000/docs")
+            print("\nDocumentation: http://localhost:8000/docs")
 
         except ValueError as e:
             print(f"[ERROR] {e}")
@@ -125,7 +125,67 @@ async def main() -> None:
     elif args.command == "analyze":
         print(f"Analyzing codebase at {args.path}...")
         result = await ultrathink.analyze_codebase(args.path)
-        print(json.dumps(result, indent=2))
+
+        # Display results in a user-friendly format
+        print("\n" + "="*70)
+        print("ANALYSIS RESULTS")
+        print("="*70)
+
+        summary = result.get("summary", {})
+        print("\nSummary:")
+        print(f"  Files analyzed: {summary.get('files_analyzed', 0)}")
+        print(f"  Total issues found: {summary.get('total_issues', 0)}")
+        print(f"  Critical issues: {summary.get('critical_issues', 0)}")
+        print(f"  High priority: {summary.get('high_priority_issues', 0)}")
+
+        # Show severity breakdown
+        severity_breakdown = summary.get('severity_breakdown', {})
+        if any(severity_breakdown.values()):
+            print("\n  Severity breakdown:")
+            for severity, count in severity_breakdown.items():
+                if count > 0:
+                    print(f"    {severity}: {count}")
+
+        # Show category breakdown
+        category_breakdown = summary.get('category_breakdown', {})
+        if category_breakdown:
+            print("\n  Category breakdown:")
+            for category, count in category_breakdown.items():
+                print(f"    {category}: {count}")
+
+        # Show detailed findings for each file
+        print("\n" + "-"*70)
+        print("DETAILED FINDINGS")
+        print("-"*70)
+
+        for file_result in result.get("results", []):
+            file_path = file_result.get("file", "Unknown")
+            print(f"\n{file_path}")
+
+            if 'error' in file_result:
+                print(f"  [ERROR] {file_result['error']}")
+                continue
+
+            analysis = file_result.get("analysis", {})
+            findings = analysis.get("findings", [])
+
+            if not findings:
+                print("  No issues found")
+                continue
+
+            for i, finding in enumerate(findings, 1):
+                line = finding.get("line_number", "?")
+                severity = finding.get("severity", "info").upper()
+                category = finding.get("category", "unknown")
+                description = finding.get("description", finding.get("raw_response", "No description"))
+                suggestion = finding.get("suggestion", "")
+
+                print(f"  [{i}] Line {line} - {severity} ({category})")
+                print(f"      Issue: {description}")
+                if suggestion:
+                    print(f"      Fix: {suggestion}")
+
+        print("\n" + "="*70)
 
     elif args.command == "evolve":
         print(f"Evolving architecture for {args.path}...")

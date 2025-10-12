@@ -1,9 +1,10 @@
 """
 Tests for the Python FastAPI scaffolder
 """
-import pytest
-from pathlib import Path
 import shutil
+from pathlib import Path
+
+import pytest
 
 from ultrathink.scaffolding import PythonScaffolder
 

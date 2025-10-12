@@ -162,7 +162,29 @@ class AIOrchestrator:
 
                 Language: {language}
 
-                Provide a structured analysis with specific findings and fixes.
+                Parse metadata (if provided):
+                {parse_metadata}
+
+                Provide your analysis as a JSON object with the following structure:
+                {{
+                    "findings": [
+                        {{
+                            "line_number": <int>,
+                            "severity": "critical|high|medium|low|info",
+                            "category": "bug|security|performance|quality|style",
+                            "description": "Description of the issue",
+                            "suggestion": "How to fix it"
+                        }}
+                    ],
+                    "summary": "Overall assessment of the code",
+                    "metrics": {{
+                        "quality_score": <float 0-1>,
+                        "security_score": <float 0-1>,
+                        "maintainability_score": <float 0-1>
+                    }}
+                }}
+
+                Return ONLY valid JSON, no additional text.
             """,
             TaskType.TEST_GENERATION: """
                 Generate comprehensive test cases for the following code:
@@ -202,11 +224,56 @@ class AIOrchestrator:
         if hasattr(response, 'text'):
             response_text = response[0].text if isinstance(response, list) else response.text
 
+        # Try to parse as JSON for structured responses
+        findings = []
+        suggestions = []
+        confidence = 0.85
+
+        try:
+            # Try to extract JSON from response (may have markdown code blocks)
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+
+            if json_start != -1 and json_end > json_start:
+                json_str = response_text[json_start:json_end]
+                parsed_data = json.loads(json_str)
+
+                # Extract findings
+                if 'findings' in parsed_data:
+                    findings = parsed_data['findings']
+
+                # Extract suggestions from findings
+                suggestions = [f["suggestion"] for f in findings if "suggestion" in f]
+
+                # Calculate confidence from metrics if available
+                if 'metrics' in parsed_data:
+                    metrics = parsed_data['metrics']
+                    scores = [v for v in metrics.values() if isinstance(v, (int, float))]
+                    if scores:
+                        confidence = sum(scores) / len(scores)
+
+                logger.info(f"Successfully parsed structured JSON response with {len(findings)} findings")
+            else:
+                # Fallback to unstructured response
+                logger.warning("No JSON found in response, using raw text")
+                findings = [{"raw_response": response_text}]
+                suggestions = [response_text]
+
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse JSON response: {e}")
+            # Fallback to unstructured response
+            findings = [{"raw_response": response_text, "parse_error": str(e)}]
+            suggestions = [response_text]
+        except Exception as e:
+            logger.error(f"Error parsing AI response: {e}")
+            findings = [{"raw_response": response_text, "error": str(e)}]
+            suggestions = [response_text]
+
         return AnalysisResult(
             task_type=task_type,
-            findings=[{"raw_response": response_text}],
-            suggestions=[response_text],
-            confidence=0.85,
+            findings=findings,
+            suggestions=suggestions,
+            confidence=confidence,
             model_used=model.value,
             timestamp=datetime.now().isoformat()
         )
