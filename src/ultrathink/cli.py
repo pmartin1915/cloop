@@ -20,6 +20,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
+logger = logging.getLogger(__name__)
+
 
 async def main() -> None:
     """Main entry point for the Ultrathink CLI."""
@@ -100,13 +102,28 @@ async def main() -> None:
 
     args = parser.parse_args()
 
-    # Handle scaffold command separately (doesn't need framework init)
+    # Handle scaffold command with optional knowledge base integration
     if args.command == "scaffold":
         if not args.name:
             parser.error("--name is required for scaffold command")
 
         print(f"Scaffolding new FastAPI project: {args.name}")
-        scaffolder = PythonScaffolder()
+
+        # Initialize framework to get knowledge base for applying improvements
+        try:
+            ultrathink = Ultrathink(args.config)
+            ultrathink.knowledge_base.load()  # Load existing improvements
+            scaffolder = PythonScaffolder(knowledge_base=ultrathink.knowledge_base)
+
+            # Check if there are improvements available
+            kb_stats = ultrathink.knowledge_base.get_stats()
+            if kb_stats.get('total_improvements', 0) > 0:
+                print(f"Found {kb_stats['total_improvements']} learned improvements in knowledge base")
+                print("These will be applied automatically to the generated code\n")
+        except Exception as e:
+            # Fall back to basic scaffolder if framework init fails
+            logger.warning(f"Could not load knowledge base: {e}")
+            scaffolder = PythonScaffolder()
 
         try:
             project_path = scaffolder.scaffold(
@@ -119,6 +136,16 @@ async def main() -> None:
 
             print("\n[SUCCESS] Project scaffolded successfully!")
             print(f"Location: {project_path.absolute()}")
+
+            # Show applied improvements
+            applied = scaffolder.get_applied_improvements()
+            if applied:
+                print(f"\n[IMPROVEMENTS] Applied {len(applied)} learned improvements:")
+                for imp in applied[:5]:  # Show first 5
+                    print(f"  - {imp['file']}: {imp['reason']}")
+                if len(applied) > 5:
+                    print(f"  ... and {len(applied) - 5} more")
+
             print("\nNext steps:")
             print(f"   cd {args.name}")
             print("   poetry install")

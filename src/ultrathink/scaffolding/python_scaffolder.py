@@ -7,7 +7,7 @@ with modern best practices.
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from jinja2 import Template
 
@@ -17,9 +17,16 @@ logger = logging.getLogger(__name__)
 class PythonScaffolder:
     """Scaffolds a Python FastAPI project with best practices"""
 
-    def __init__(self):
-        """Initialize the scaffolder"""
+    def __init__(self, knowledge_base: Optional[Any] = None):
+        """
+        Initialize the scaffolder.
+
+        Args:
+            knowledge_base: Optional KnowledgeBase for applying learned improvements
+        """
         self.templates = self._load_templates()
+        self.knowledge_base = knowledge_base
+        self.applied_improvements = []
 
     def scaffold(
         self,
@@ -75,6 +82,12 @@ class PythonScaffolder:
 
             # Generate files from templates
             self._generate_files(project_path, project_name, context)
+
+            # Apply learned improvements if knowledge base is available
+            if self.knowledge_base:
+                improvements_count = self._apply_learned_improvements(project_path, project_name)
+                if improvements_count > 0:
+                    logger.info(f"Applied {improvements_count} learned improvements to generated code")
 
             duration = time.time() - start_time
             logger.info(f"Project scaffolded successfully in {duration:.2f}s at: {project_path}")
@@ -158,6 +171,98 @@ class PythonScaffolder:
                 full_path.write_text("", encoding="utf-8")
 
         logger.info(f"Generated {len(files)} files")
+
+    def _apply_learned_improvements(self, project_path: Path, project_name: str) -> int:
+        """
+        Apply learned improvements from knowledge base to generated code.
+
+        Args:
+            project_path: Path to the generated project
+            project_name: Name of the project
+
+        Returns:
+            Number of improvements applied
+        """
+        from ..patch_engine import PatchEngine
+
+        logger.info("Applying learned improvements to generated code")
+
+        # Get all applicable improvements
+        all_improvements = self.knowledge_base.improvements
+
+        if not all_improvements:
+            logger.debug("No improvements available in knowledge base")
+            return 0
+
+        patch_engine = PatchEngine()
+        total_applied = 0
+
+        # Apply improvements to Python files
+        for py_file in project_path.rglob("*.py"):
+            # Skip __pycache__ and other generated files
+            if "__pycache__" in str(py_file):
+                continue
+
+            try:
+                # Read file content
+                code = py_file.read_text(encoding='utf-8')
+
+                # Get improvements for this file type
+                applicable_patches = []
+
+                # Check for file-specific improvements
+                for imp in all_improvements:
+                    template_file = imp.get('template_file', '')
+                    # Apply if template_file matches or is empty (global)
+                    if not template_file or template_file in str(py_file):
+                        applicable_patches.append(imp)
+
+                if not applicable_patches:
+                    continue
+
+                # Apply patches
+                patched_code, report = patch_engine.apply_patches(
+                    code,
+                    applicable_patches,
+                    language="python"
+                )
+
+                # If patches were applied, write back to file
+                patches_applied = sum(1 for r in report if r['status'] == 'applied')
+                if patches_applied > 0:
+                    py_file.write_text(patched_code, encoding='utf-8')
+                    total_applied += patches_applied
+
+                    # Track applied improvements
+                    for r in report:
+                        if r['status'] == 'applied':
+                            self.applied_improvements.append({
+                                'file': str(py_file.relative_to(project_path)),
+                                'reason': r['reason'],
+                                'patch_id': r.get('patch_id')
+                            })
+
+                            # Increment usage count in knowledge base
+                            if 'patch_id' in r and isinstance(r['patch_id'], int):
+                                self.knowledge_base.increment_improvement_usage(r['patch_id'])
+
+                    logger.info(f"Applied {patches_applied} improvements to {py_file.name}")
+
+            except Exception as e:
+                logger.error(f"Error applying improvements to {py_file}: {e}")
+                continue
+
+        logger.info(f"Total improvements applied: {total_applied}")
+        return total_applied
+
+    def get_applied_improvements(self) -> List[Dict[str, Any]]:
+        """
+        Get list of improvements that were applied during scaffolding.
+
+        Returns:
+            List of applied improvement dictionaries
+        """
+        return self.applied_improvements
 
     def _load_templates(self) -> Dict[str, str]:
         """Load all file templates"""
