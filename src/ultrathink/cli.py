@@ -10,9 +10,17 @@ import json
 import logging
 from pathlib import Path
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
 from .framework import Ultrathink
 from .learning_engine import LearningEngine
 from .scaffolding import PythonScaffolder
+
+# Initialize rich console for colored output
+# Force UTF-8 to avoid Windows cp1252 encoding issues with Unicode symbols
+console = Console(force_terminal=True, legacy_windows=False)
 
 # Setup logging
 logging.basicConfig(
@@ -107,7 +115,7 @@ async def main() -> None:
         if not args.name:
             parser.error("--name is required for scaffold command")
 
-        print(f"Scaffolding new FastAPI project: {args.name}")
+        console.print(f"\n[cyan]Scaffolding new FastAPI project:[/cyan] [bold]{args.name}[/bold]")
 
         # Initialize framework to get knowledge base for applying improvements
         try:
@@ -118,8 +126,8 @@ async def main() -> None:
             # Check if there are improvements available
             kb_stats = ultrathink.knowledge_base.get_stats()
             if kb_stats.get('total_improvements', 0) > 0:
-                print(f"Found {kb_stats['total_improvements']} learned improvements in knowledge base")
-                print("These will be applied automatically to the generated code\n")
+                console.print(f"[yellow]Found {kb_stats['total_improvements']} learned improvements in knowledge base[/yellow]")
+                console.print("[dim]These will be applied automatically to the generated code[/dim]\n")
         except Exception as e:
             # Fall back to basic scaffolder if framework init fails
             logger.warning(f"Could not load knowledge base: {e}")
@@ -134,32 +142,35 @@ async def main() -> None:
                 description=args.description
             )
 
-            print("\n[SUCCESS] Project scaffolded successfully!")
-            print(f"Location: {project_path.absolute()}")
+            console.print(Panel.fit(
+                f"[green]SUCCESS: Project scaffolded successfully![/green]\n"
+                f"[cyan]Location:[/cyan] {project_path.absolute()}",
+                border_style="green"
+            ))
 
             # Show applied improvements
             applied = scaffolder.get_applied_improvements()
             if applied:
-                print(f"\n[IMPROVEMENTS] Applied {len(applied)} learned improvements:")
+                console.print(f"\n[green]Applied {len(applied)} learned improvements:[/green]")
                 for imp in applied[:5]:  # Show first 5
-                    print(f"  - {imp['file']}: {imp['reason']}")
+                    console.print(f"  [green]+[/green] {imp['file']}: [dim]{imp['reason']}[/dim]")
                 if len(applied) > 5:
-                    print(f"  ... and {len(applied) - 5} more")
+                    console.print(f"  [dim]... and {len(applied) - 5} more[/dim]")
 
-            print("\nNext steps:")
-            print(f"   cd {args.name}")
-            print("   poetry install")
-            print(f"   poetry run {args.name}")
-            print("\nDocumentation: http://localhost:8000/docs")
+            console.print("\n[cyan]Next steps:[/cyan]")
+            console.print(f"   [bold]cd {args.name}[/bold]")
+            console.print("   [bold]poetry install[/bold]")
+            console.print(f"   [bold]poetry run {args.name}[/bold]")
+            console.print("\n[cyan]Documentation:[/cyan] http://localhost:8000/docs")
 
         except ValueError as e:
-            print(f"[ERROR] {e}")
+            console.print(f"[red]ERROR:[/red] {e}")
             return
         except FileExistsError as e:
-            print(f"[ERROR] {e}")
+            console.print(f"[red]ERROR:[/red] {e}")
             return
         except Exception as e:
-            print(f"[ERROR] Unexpected error: {e}")
+            console.print(f"[red]ERROR:[/red] Unexpected error: {e}")
             logging.exception("Scaffolding failed")
             return
 
@@ -271,8 +282,8 @@ async def main() -> None:
             print(f"  - {key}: {value}")
 
     elif args.command == "learn":
-        print("Learning from stored analysis findings...")
-        print(f"Pattern detection threshold: {args.threshold} occurrences\n")
+        console.print("\n[cyan]Learning from stored analysis findings...[/cyan]")
+        console.print(f"[dim]Pattern detection threshold: {args.threshold} occurrences[/dim]\n")
 
         # Create learning engine
         learning_engine = LearningEngine(
@@ -283,67 +294,77 @@ async def main() -> None:
         # Learn from findings
         result = learning_engine.learn_from_findings(occurrence_threshold=args.threshold)
 
-        # Display learning summary
-        print("="*70)
-        print("LEARNING RESULTS")
-        print("="*70)
-
-        print(f"\nPatterns Identified: {result['patterns_identified']}")
-        print(f"Patches Generated: {result['patches_generated']}")
+        # Display learning summary with table
+        summary_table = Table(title="Learning Results", show_header=False, border_style="cyan")
+        summary_table.add_row("[cyan]Patterns Identified:[/cyan]", f"[bold]{result['patterns_identified']}[/bold]")
+        summary_table.add_row("[cyan]Patches Generated:[/cyan]", f"[bold]{result['patches_generated']}[/bold]")
+        console.print(summary_table)
 
         # Show identified patterns
         if result['patterns']:
-            print("\n" + "-"*70)
-            print("PATTERNS IDENTIFIED")
-            print("-"*70)
+            console.print("\n[bold cyan]=== PATTERNS IDENTIFIED ===[/bold cyan]")
 
             for i, pattern in enumerate(result['patterns'], 1):
-                print(f"\n[{i}] {pattern['description']}")
-                print(f"    Category: {pattern['pattern_type']}")
-                print(f"    Severity: {pattern['severity']}")
-                print(f"    Frequency: {pattern['frequency']} occurrences")
-                print(f"    Affected files: {len(pattern['affected_files'])}")
+                severity_color = {
+                    "critical": "red",
+                    "high": "orange",
+                    "medium": "yellow",
+                    "low": "blue"
+                }.get(pattern['severity'].lower(), "white")
+
+                console.print(f"\n[bold][{i}][/bold] {pattern['description']}")
+                console.print(f"    [dim]Category:[/dim] {pattern['pattern_type']}")
+                console.print(f"    [dim]Severity:[/dim] [{severity_color}]{pattern['severity']}[/{severity_color}]")
+                console.print(f"    [dim]Frequency:[/dim] {pattern['frequency']} occurrences")
+                console.print(f"    [dim]Affected files:[/dim] {len(pattern['affected_files'])}")
                 if pattern['affected_files'][:3]:
-                    print("    Examples:")
+                    console.print("    [dim]Examples:[/dim]")
                     for file in pattern['affected_files'][:3]:
-                        print(f"      - {file}")
+                        console.print(f"      [dim]- {file}[/dim]")
 
         # Show generated patches
         if result['patches']:
-            print("\n" + "-"*70)
-            print("PATCHES GENERATED")
-            print("-"*70)
+            console.print("\n[bold cyan]=== PATCHES GENERATED ===[/bold cyan]")
 
             for i, patch in enumerate(result['patches'], 1):
-                print(f"\n[{i}] {patch['reason']}")
-                if patch['template_file']:
-                    print(f"    Target template: {patch['template_file']}")
-                if patch['line_pattern']:
-                    print(f"    Pattern to match: {patch['line_pattern'][:60]}...")
+                console.print(f"\n[bold green][{i}][/bold green] {patch['reason']}")
+                if patch.get('template_file'):
+                    console.print(f"    [dim]Target template:[/dim] {patch['template_file']}")
+                if patch.get('line_pattern'):
+                    pattern_preview = patch['line_pattern'][:60]
+                    if len(patch['line_pattern']) > 60:
+                        pattern_preview += "..."
+                    console.print(f"    [dim]Pattern to match:[/dim] [yellow]{pattern_preview}[/yellow]")
 
         # Show learning statistics
         stats = learning_engine.get_learning_stats()
-        print("\n" + "-"*70)
-        print("LEARNING STATISTICS")
-        print("-"*70)
 
-        print(f"\n  Total findings analyzed: {stats['total_findings']}")
-        print(f"  Total patterns identified: {stats['total_patterns']}")
-        print(f"  Total patches available: {stats['total_patches']}")
-        print(f"  Learning rate: {stats['learning_rate']:.2%}")
+        stats_table = Table(title="Learning Statistics", show_header=False, border_style="cyan")
+        stats_table.add_row("[cyan]Total findings analyzed:[/cyan]", str(stats['total_findings']))
+        stats_table.add_row("[cyan]Total patterns identified:[/cyan]", str(stats['total_patterns']))
+        stats_table.add_row("[cyan]Total patches available:[/cyan]", str(stats['total_patches']))
+        stats_table.add_row("[cyan]Learning rate:[/cyan]", f"[bold]{stats['learning_rate']:.2%}[/bold]")
+
+        console.print()
+        console.print(stats_table)
 
         if stats['top_issues']:
-            print("\n  Most common issues:")
+            console.print("\n[cyan]Most common issues:[/cyan]")
             for issue in stats['top_issues'][:5]:
-                print(f"    - {issue['description']}: {issue['count']} occurrences")
-
-        print("\n" + "="*70)
+                console.print(f"  [yellow]-[/yellow] {issue['description']}: [bold]{issue['count']}[/bold] occurrences")
 
         if result['patches_generated'] > 0:
-            print(f"\n[SUCCESS] Learned {result['patches_generated']} improvements from code analysis")
-            print("These patches will be applied automatically in future scaffolding operations")
+            console.print(Panel.fit(
+                f"[green]SUCCESS: Learned {result['patches_generated']} improvements from code analysis[/green]\n"
+                "[dim]These patches will be applied automatically in future scaffolding operations[/dim]",
+                border_style="green"
+            ))
         else:
-            print("\n[INFO] No new patterns found. Analyze more code to enable learning.")
+            console.print(Panel.fit(
+                "[yellow]INFO: No new patterns found[/yellow]\n"
+                "[dim]Analyze more code to enable learning[/dim]",
+                border_style="yellow"
+            ))
 
 
 def run() -> None:

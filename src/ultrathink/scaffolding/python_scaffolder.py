@@ -480,7 +480,7 @@ router = APIRouter()
 
 
 @router.get("", response_model=HealthResponse)
-async def health_check():
+async def health_check(request):
     """Health check endpoint"""
     return HealthResponse(
         status="healthy",

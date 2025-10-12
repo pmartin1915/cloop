@@ -268,7 +268,8 @@ def test_scaffold_health_endpoint(scaffolder, temp_output_dir):
     assert "from fastapi import APIRouter" in health_content
     assert "router = APIRouter()" in health_content
     assert '@router.get("' in health_content  # Check for decorator start
-    assert "async def health_check()" in health_content
+    # Note: health_check now has a parameter (intentional flaw for learning demo)
+    assert "async def health_check(request):" in health_content
     assert "HealthResponse" in health_content
 
 
