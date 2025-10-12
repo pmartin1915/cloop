@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 
 from .framework import Ultrathink
+from .learning_engine import LearningEngine
 from .scaffolding import PythonScaffolder
 
 # Setup logging
@@ -28,7 +29,7 @@ async def main() -> None:
 
     parser.add_argument(
         "command",
-        choices=["init", "analyze", "improve", "evolve", "test", "stats", "scaffold"],
+        choices=["init", "analyze", "improve", "evolve", "test", "stats", "scaffold", "learn"],
         help="Command to execute"
     )
 
@@ -87,6 +88,14 @@ async def main() -> None:
         dest="save_findings",
         action="store_false",
         help="Don't save analysis findings to knowledge base"
+    )
+
+    # Learn command arguments
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        default=2,
+        help="Minimum occurrences for pattern detection (default: 2)"
     )
 
     args = parser.parse_args()
@@ -233,6 +242,81 @@ async def main() -> None:
         print("Ultrathink Statistics:")
         for key, value in stats.items():
             print(f"  - {key}: {value}")
+
+    elif args.command == "learn":
+        print("Learning from stored analysis findings...")
+        print(f"Pattern detection threshold: {args.threshold} occurrences\n")
+
+        # Create learning engine
+        learning_engine = LearningEngine(
+            knowledge_base=ultrathink.knowledge_base,
+            similarity_threshold=ultrathink.config.get('learning', {}).get('pattern_similarity_threshold', 0.8)
+        )
+
+        # Learn from findings
+        result = learning_engine.learn_from_findings(occurrence_threshold=args.threshold)
+
+        # Display learning summary
+        print("="*70)
+        print("LEARNING RESULTS")
+        print("="*70)
+
+        print(f"\nPatterns Identified: {result['patterns_identified']}")
+        print(f"Patches Generated: {result['patches_generated']}")
+
+        # Show identified patterns
+        if result['patterns']:
+            print("\n" + "-"*70)
+            print("PATTERNS IDENTIFIED")
+            print("-"*70)
+
+            for i, pattern in enumerate(result['patterns'], 1):
+                print(f"\n[{i}] {pattern['description']}")
+                print(f"    Category: {pattern['pattern_type']}")
+                print(f"    Severity: {pattern['severity']}")
+                print(f"    Frequency: {pattern['frequency']} occurrences")
+                print(f"    Affected files: {len(pattern['affected_files'])}")
+                if pattern['affected_files'][:3]:
+                    print("    Examples:")
+                    for file in pattern['affected_files'][:3]:
+                        print(f"      - {file}")
+
+        # Show generated patches
+        if result['patches']:
+            print("\n" + "-"*70)
+            print("PATCHES GENERATED")
+            print("-"*70)
+
+            for i, patch in enumerate(result['patches'], 1):
+                print(f"\n[{i}] {patch['reason']}")
+                if patch['template_file']:
+                    print(f"    Target template: {patch['template_file']}")
+                if patch['line_pattern']:
+                    print(f"    Pattern to match: {patch['line_pattern'][:60]}...")
+
+        # Show learning statistics
+        stats = learning_engine.get_learning_stats()
+        print("\n" + "-"*70)
+        print("LEARNING STATISTICS")
+        print("-"*70)
+
+        print(f"\n  Total findings analyzed: {stats['total_findings']}")
+        print(f"  Total patterns identified: {stats['total_patterns']}")
+        print(f"  Total patches available: {stats['total_patches']}")
+        print(f"  Learning rate: {stats['learning_rate']:.2%}")
+
+        if stats['top_issues']:
+            print("\n  Most common issues:")
+            for issue in stats['top_issues'][:5]:
+                print(f"    - {issue['description']}: {issue['count']} occurrences")
+
+        print("\n" + "="*70)
+
+        if result['patches_generated'] > 0:
+            print(f"\n[SUCCESS] Learned {result['patches_generated']} improvements from code analysis")
+            print("These patches will be applied automatically in future scaffolding operations")
+        else:
+            print("\n[INFO] No new patterns found. Analyze more code to enable learning.")
 
 
 def run() -> None:
