@@ -74,6 +74,21 @@ async def main() -> None:
         help="Project description for scaffolded project"
     )
 
+    # Analysis-specific arguments
+    parser.add_argument(
+        "--save-findings",
+        action="store_true",
+        default=True,
+        help="Save analysis findings to knowledge base (default: True)"
+    )
+
+    parser.add_argument(
+        "--no-save-findings",
+        dest="save_findings",
+        action="store_false",
+        help="Don't save analysis findings to knowledge base"
+    )
+
     args = parser.parse_args()
 
     # Handle scaffold command separately (doesn't need framework init)
@@ -124,7 +139,13 @@ async def main() -> None:
 
     elif args.command == "analyze":
         print(f"Analyzing codebase at {args.path}...")
-        result = await ultrathink.analyze_codebase(args.path)
+        result = await ultrathink.analyze_codebase(args.path, save_findings=args.save_findings)
+
+        # Notify user if findings were saved
+        if args.save_findings:
+            total_issues = result.get("summary", {}).get("total_issues", 0)
+            if total_issues > 0:
+                print(f"\n[Saved {total_issues} findings to knowledge base]")
 
         # Display results in a user-friendly format
         print("\n" + "="*70)

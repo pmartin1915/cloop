@@ -58,8 +58,17 @@ class Ultrathink:
 
         return config
 
-    async def analyze_codebase(self, path: str) -> Dict[str, Any]:
-        """Analyze entire codebase"""
+    async def analyze_codebase(self, path: str, save_findings: bool = True) -> Dict[str, Any]:
+        """
+        Analyze entire codebase.
+
+        Args:
+            path: Path to codebase directory
+            save_findings: Whether to save findings to knowledge base
+
+        Returns:
+            Analysis results with summary
+        """
         results = []
 
         for file_path in Path(path).rglob("*.py"):  # Start with Python
@@ -78,6 +87,14 @@ class Ultrathink:
                         "parse_metadata": parse_result
                     }
                 )
+
+                # Store findings in knowledge base if requested
+                if save_findings and analysis.findings:
+                    self.knowledge_base.store_analysis_findings(
+                        file_path=str(file_path),
+                        findings=analysis.findings,
+                        parse_info=parse_result
+                    )
 
                 results.append({
                     "file": str(file_path),
