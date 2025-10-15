@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ultrathink": {
+      "command": "poetry",
+      "args": ["run", "python", "-m", "ultrathink.mcp_server"],
+      "cwd": "c:\\Cloop\\ultrathink"
+    }
+  }
+}

@@ -374,6 +374,62 @@ class KnowledgeBase:
         conn.commit()
         conn.close()
 
+    def get_all_findings(self) -> List[Dict[str, Any]]:
+        """Get all findings from the knowledge base"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT file_path, line_number, severity, category, description, suggestion FROM findings ORDER BY timestamp DESC')
+        findings = []
+        for row in cursor.fetchall():
+            findings.append({
+                'file_path': row[0],
+                'line_number': row[1],
+                'severity': row[2],
+                'category': row[3],
+                'description': row[4],
+                'suggestion': row[5]
+            })
+        
+        conn.close()
+        return findings
+    
+    def get_all_patterns(self) -> List[Dict[str, Any]]:
+        """Get all patterns from the knowledge base"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT pattern_type, description, frequency FROM patterns ORDER BY frequency DESC')
+        patterns = []
+        for row in cursor.fetchall():
+            patterns.append({
+                'pattern_type': row[0],
+                'description': row[1],
+                'frequency': row[2],
+                'severity': 'medium'  # Default since not stored
+            })
+        
+        conn.close()
+        return patterns
+    
+    def get_all_improvements(self) -> List[Dict[str, Any]]:
+        """Get all improvements from the knowledge base"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT template_file, line_pattern, replacement, reason FROM improvements')
+        improvements = []
+        for row in cursor.fetchall():
+            improvements.append({
+                'template_file': row[0],
+                'line_pattern': row[1],
+                'replacement': row[2],
+                'reason': row[3]
+            })
+        
+        conn.close()
+        return improvements
+
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the knowledge base"""
         conn = sqlite3.connect(self.db_path)
@@ -387,7 +443,10 @@ class KnowledgeBase:
 
         # Count by severity
         cursor.execute('SELECT severity, COUNT(*) FROM findings GROUP BY severity')
-        stats['findings_by_severity'] = dict(cursor.fetchall())
+        severity_dict = dict(cursor.fetchall())
+        stats['findings_by_severity'] = severity_dict
+        stats['severity_breakdown'] = severity_dict
+        stats['learning_rate'] = (stats.get('total_improvements', 0) / max(stats.get('total_findings', 1), 1))
 
         # Count patterns
         cursor.execute('SELECT COUNT(*) FROM patterns')

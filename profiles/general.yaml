@@ -1,0 +1,24 @@
+name: "General Development"
+description: "Standard software development"
+
+focus:
+  code_quality: high
+  error_handling: high
+  performance: medium
+  security: medium
+
+checks:
+  - "Check error handling"
+  - "Verify input validation"
+  - "Check code documentation"
+  - "Verify test coverage"
+  - "Check for security issues"
+
+handoff_template: |
+  # Code Review
+  
+  ## Analysis
+  {analysis}
+  
+  ## Recommendations
+  Review findings and apply suggested improvements.

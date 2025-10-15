@@ -1,0 +1,43 @@
+name: "iOS Game"
+description: "Casual game development (Mendelian flower game)"
+
+focus:
+  performance: critical
+  ui_polish: critical
+  pixel_art_quality: high
+  gameplay_smoothness: high
+  medical_safety: none
+
+checks:
+  - "Check frame rate optimization (target 60fps)"
+  - "Detect memory leaks and object pooling"
+  - "Verify asset loading efficiency"
+  - "Check animation smoothness"
+  - "Measure touch response time"
+  - "Analyze battery usage patterns"
+  - "Verify pixel art rendering quality"
+  - "Check for spatial partitioning"
+
+handoff_template: |
+  # iOS Game Code Review - Mendelian
+  
+  ## 🎮 CREATIVE REQUIREMENTS
+  - Smooth 60fps gameplay
+  - Beautiful pixel art rendering
+  - Delightful user experience
+  - Quick load times
+  - Battery efficient
+  
+  ## Domain Context
+  This is a casual flower-themed game for iOS.
+  Focus on polish, performance, and player enjoyment.
+  
+  ## Code Analysis
+  {analysis}
+  
+  ## Optimization Goals
+  1. Optimize rendering for 60fps
+  2. Ensure smooth animations
+  3. Polish UI interactions
+  4. Reduce battery consumption
+  5. Test on actual iOS devices

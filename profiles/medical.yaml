@@ -1,0 +1,43 @@
+name: "Medical Application"
+description: "Safety-critical medical software (Burn Wizard, Clinic Wizard, ECG Wizard)"
+
+focus:
+  medical_safety: critical
+  data_validation: critical
+  error_handling: critical
+  performance: medium
+  ui_polish: low
+
+checks:
+  - "Validate all patient data inputs (age, weight, measurements)"
+  - "Verify calculation accuracy with unit tests"
+  - "Check for proper error messages for medical staff"
+  - "Ensure no silent failures"
+  - "Verify audit logging for data changes"
+  - "Check HIPAA compliance patterns"
+  - "Validate unit consistency (metric vs imperial)"
+  - "Check medical range validation"
+
+handoff_template: |
+  # Medical Application Code Review
+  
+  ## ⚠️ CRITICAL SAFETY REQUIREMENTS
+  - All patient data MUST be validated
+  - Calculations MUST be double-checked with tests
+  - Error messages MUST be clear for medical staff
+  - NO silent failures allowed
+  - Audit trail required for all data changes
+  
+  ## Domain Context
+  This is medical software where errors can harm patients.
+  Patient safety is paramount.
+  
+  ## Code Analysis
+  {analysis}
+  
+  ## Required Actions
+  1. Add input validation with medical ranges
+  2. Include unit tests for all calculations
+  3. Add error logging for audit trail
+  4. Ensure HIPAA-compliant error messages
+  5. Verify no silent failures

@@ -17,6 +17,7 @@ from rich.table import Table
 from .framework import Ultrathink
 from .learning_engine import LearningEngine
 from .scaffolding import PythonScaffolder
+from .profiles import ProfileManager
 
 # Initialize rich console for colored output
 # Force UTF-8 to avoid Windows cp1252 encoding issues with Unicode symbols
@@ -39,7 +40,7 @@ async def main() -> None:
 
     parser.add_argument(
         "command",
-        choices=["init", "analyze", "improve", "evolve", "test", "stats", "scaffold", "learn"],
+        choices=["init", "analyze", "improve", "evolve", "test", "stats", "scaffold", "learn", "ui", "handoff"],
         help="Command to execute"
     )
 
@@ -106,6 +107,14 @@ async def main() -> None:
         type=int,
         default=2,
         help="Minimum occurrences for pattern detection (default: 2)"
+    )
+
+    parser.add_argument(
+        "--profile",
+        type=str,
+        choices=["auto", "medical", "game", "general"],
+        default="auto",
+        help="Project profile for context-aware analysis (default: auto-detect)"
     )
 
     args = parser.parse_args()
@@ -281,6 +290,74 @@ async def main() -> None:
         for key, value in stats.items():
             print(f"  - {key}: {value}")
 
+    elif args.command == "ui":
+        console.print("\n[cyan]Launching Ultrathink Dashboard...[/cyan]")
+        
+        import subprocess
+        import sys
+        import socket
+        
+        # Get path to streamlit app
+        ui_path = Path(__file__).parent.parent.parent / "ui" / "app.py"
+        
+        # Find available port with retry logic
+        def is_port_available(port):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(('localhost', port))
+                    return True
+                except OSError:
+                    return False
+        
+        # Try ports 8501-8510 with retries
+        port = None
+        for p in range(8501, 8511):
+            if is_port_available(p):
+                # Double-check after a brief moment
+                import time
+                time.sleep(0.1)
+                if is_port_available(p):
+                    port = p
+                    break
+        
+        if not port:
+            console.print("[red]No available ports found (tried 8501-8510)[/red]")
+            console.print("[yellow]Please close other Streamlit instances or specify a port:[/yellow]")
+            console.print("[dim]streamlit run ui/app.py --server.port 8520[/dim]")
+            return
+        
+        console.print(f"[dim]Opening browser at http://localhost:{port}[/dim]\n")
+        
+        try:
+            # Launch streamlit with available port
+            result = subprocess.run([
+                sys.executable, "-m", "streamlit", "run", str(ui_path),
+                "--server.port", str(port)
+            ], check=True, capture_output=False)
+        except subprocess.CalledProcessError as e:
+            # Port conflict - try next port
+            console.print(f"[yellow]Port {port} became unavailable, trying next port...[/yellow]")
+            for p in range(port + 1, 8511):
+                if is_port_available(p):
+                    console.print(f"[dim]Retrying with port {p}[/dim]\n")
+                    try:
+                        subprocess.run([
+                            sys.executable, "-m", "streamlit", "run", str(ui_path),
+                            "--server.port", str(p)
+                        ], check=True)
+                        return
+                    except:
+                        continue
+            console.print(f"[red]Failed to launch dashboard[/red]")
+            console.print(f"[dim]Try manually: streamlit run ui/app.py --server.port 8520[/dim]")
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Dashboard closed[/yellow]")
+        except Exception as e:
+            console.print(f"[red]Failed to launch dashboard: {e}[/red]")
+            console.print(f"[dim]Try manually: streamlit run ui/app.py --server.port 8520[/dim]")
+        
+        return
+
     elif args.command == "learn":
         console.print("\n[cyan]Learning from stored analysis findings...[/cyan]")
         console.print(f"[dim]Pattern detection threshold: {args.threshold} occurrences[/dim]\n")
@@ -365,6 +442,114 @@ async def main() -> None:
                 "[dim]Analyze more code to enable learning[/dim]",
                 border_style="yellow"
             ))
+
+    elif args.command == "handoff":
+        console.print("\n[cyan]Generating AI handoff prompt...[/cyan]\n")
+        
+        # Detect or use specified project profile
+        profile_mgr = ProfileManager()
+        if args.profile == "auto":
+            profile_name = profile_mgr.detect_profile(args.path)
+        else:
+            profile_name = args.profile
+        profile = profile_mgr.load_profile(profile_name)
+        
+        console.print(f"[dim]Detected profile: {profile['name']}[/dim]\n")
+        
+        # Analyze the codebase
+        result = await ultrathink.analyze_codebase(args.path, save_findings=False)
+        
+        # Generate handoff prompt with profile template
+        analysis_text = generate_handoff_prompt(result, args.path)
+        prompt = profile_mgr.get_handoff_template(profile_name, analysis_text)
+        
+        # Display the prompt
+        console.print(Panel(prompt, title=f"[bold cyan]{profile['name']} - AI Handoff[/bold cyan]", border_style="cyan"))
+        
+        # Save to file
+        output_file = Path("ultrathink_handoff.md")
+        output_file.write_text(prompt, encoding='utf-8')
+        console.print(f"\n[green]SUCCESS:[/green] Saved to [bold]{output_file}[/bold]")
+        console.print("[dim]Copy and paste this prompt to your AI assistant[/dim]\n")
+
+
+def generate_handoff_prompt(analysis_result: dict, path: str) -> str:
+    """Generate a concise AI handoff prompt with best practices and errors."""
+    summary = analysis_result.get("summary", {})
+    results = analysis_result.get("results", [])
+    
+    # Count issues by severity
+    critical = summary.get("critical_issues", 0)
+    high = summary.get("high_priority_issues", 0)
+    total = summary.get("total_issues", 0)
+    
+    # Build prompt
+    prompt = f"""# Code Review - Fix Request
+
+## Context
+I analyzed `{path}` and found **{total} issues** that need fixing.
+
+## Best Practices to Follow
+- **Type Safety**: Add type hints to all functions
+- **Error Handling**: Use specific exceptions, validate inputs
+- **Security**: Avoid eval(), use parameterized queries
+- **Code Quality**: Add docstrings, remove unused code
+- **Performance**: Optimize loops, avoid redundant operations
+
+## Issues Found ({total} total)
+"""
+    
+    if critical > 0 or high > 0:
+        prompt += f"\n**Priority**: {critical} critical, {high} high-severity issues\n"
+    
+    # Group findings by file
+    for file_result in results:
+        file_path = file_result.get("file", "Unknown")
+        
+        if 'error' in file_result:
+            continue
+            
+        analysis = file_result.get("analysis", {})
+        findings = analysis.get("findings", [])
+        
+        if not findings:
+            continue
+        
+        # Show relative path
+        try:
+            rel_path = Path(file_path).relative_to(Path(path).parent)
+        except:
+            rel_path = Path(file_path).name
+            
+        prompt += f"\n### `{rel_path}`\n"
+        
+        # Sort by severity
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+        sorted_findings = sorted(findings, key=lambda f: severity_order.get(f.get("severity", "info"), 5))
+        
+        for finding in sorted_findings[:10]:  # Limit to top 10 per file
+            line = finding.get("line_number", "?")
+            severity = finding.get("severity", "info").upper()
+            category = finding.get("category", "unknown")
+            description = finding.get("description", "No description")
+            suggestion = finding.get("suggestion", "")
+            
+            # Emoji for severity (use text for Windows compatibility)
+            emoji = {"CRITICAL": "[!]", "HIGH": "[!!]", "MEDIUM": "[*]", "LOW": "[-]", "INFO": "[i]"}.get(severity, "[i]")
+            
+            prompt += f"\n{emoji} **Line {line}** [{severity}] - {category}\n"
+            prompt += f"- Issue: {description}\n"
+            if suggestion:
+                prompt += f"- Fix: {suggestion}\n"
+    
+    prompt += """\n## Your Task
+Fix these issues following the best practices above. For each fix:
+1. Show the corrected code
+2. Explain what changed and why
+3. Start with critical/high-severity issues
+"""
+    
+    return prompt
 
 
 def run() -> None:

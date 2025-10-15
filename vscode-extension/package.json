@@ -1,0 +1,148 @@
+{
+  "name": "ultrathink",
+  "displayName": "Ultrathink",
+  "description": "Self-improving development framework with AI-powered code analysis",
+  "version": "0.1.0",
+  "publisher": "ultrathink",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ultrathink.analyzeFile",
+        "title": "Ultrathink: Analyze Current File",
+        "icon": "$(search)"
+      },
+      {
+        "command": "ultrathink.analyzeWorkspace",
+        "title": "Ultrathink: Analyze Workspace",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "ultrathink.learnPatterns",
+        "title": "Ultrathink: Learn Patterns",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "ultrathink.scaffoldProject",
+        "title": "Ultrathink: Scaffold New Project",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "ultrathink.showStats",
+        "title": "Ultrathink: Show Statistics",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "ultrathink.refreshFindings",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ultrathink.generateHandoff",
+        "title": "Ultrathink: Generate Amazon Q Handoff",
+        "icon": "$(clippy)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ultrathink-sidebar",
+          "title": "Ultrathink",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ultrathink-sidebar": [
+        {
+          "id": "ultrathink.findingsView",
+          "name": "Findings"
+        },
+        {
+          "id": "ultrathink.patternsView",
+          "name": "Learned Patterns"
+        },
+        {
+          "id": "ultrathink.statsView",
+          "name": "Statistics"
+        }
+      ]
+    },
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "ultrathink.analyzeFile",
+          "group": "ultrathink@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "ultrathink.analyzeFile",
+          "group": "ultrathink@1"
+        },
+        {
+          "command": "ultrathink.generateHandoff",
+          "group": "ultrathink@2"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "ultrathink.refreshFindings",
+          "when": "view == ultrathink.findingsView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Ultrathink",
+      "properties": {
+        "ultrathink.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python interpreter with Ultrathink installed"
+        },
+        "ultrathink.ultrathinkPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Ultrathink installation directory"
+        },
+        "ultrathink.autoAnalyze": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically analyze files on save"
+        },
+        "ultrathink.defaultModel": {
+          "type": "string",
+          "default": "bedrock",
+          "enum": ["claude", "gemini", "bedrock"],
+          "description": "Default AI model to use"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.x",
+    "@typescript-eslint/parser": "^6.x",
+    "eslint": "^8.x",
+    "typescript": "^5.3.0"
+  }
+}

@@ -135,17 +135,54 @@ class AIOrchestrator:
 
         prompt = self._build_prompt(task_type, context)
 
-        response = self.bedrock_client.invoke_model(
-            modelId='anthropic.claude-v2',
-            body=json.dumps({
-                "prompt": prompt,
-                "max_tokens_to_sample": 4096,
-                "temperature": 0.7
-            })
-        )
+        # Select model based on task complexity
+        model_id = self._select_bedrock_model(task_type)
 
-        result = json.loads(response['body'].read())
-        return self._parse_ai_response(result['completion'], task_type, AIModel.AWS_BEDROCK_CLAUDE)
+        # Use Messages API format for Claude 3.5+
+        body = json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.7
+        })
+
+        try:
+            response = self.bedrock_client.invoke_model(
+                modelId=model_id,
+                contentType='application/json',
+                accept='application/json',
+                body=body
+            )
+
+            result = json.loads(response['body'].read())
+            
+            # Extract text from Messages API response
+            content_blocks = result.get('content', [])
+            response_text = ''
+            for block in content_blocks:
+                if block.get('type') == 'text':
+                    response_text += block.get('text', '')
+            
+            return self._parse_ai_response(response_text, task_type, AIModel.AWS_BEDROCK_CLAUDE)
+        
+        except Exception as e:
+            logger.error(f"Bedrock invocation failed: {e}")
+            # Fallback to Claude if available
+            if self.claude_client:
+                logger.info("Falling back to Claude API")
+                return await self._process_with_claude(task_type, context)
+            raise
+
+    def _select_bedrock_model(self, task_type: TaskType) -> str:
+        """Select appropriate Bedrock model based on task type"""
+        # Use Claude 4.5 experimental for complex tasks
+        if task_type in [TaskType.ARCHITECTURE_EVOLUTION, TaskType.REFACTORING]:
+            return 'anthropic.claude-sonnet-4-5-20250929-v1:0'
+        
+        # Use Claude 3.5 for standard tasks (faster, cheaper)
+        return 'anthropic.claude-3-5-sonnet-20240620-v1:0'
 
     def _build_prompt(self, task_type: TaskType, context: Dict[str, Any]) -> str:
         """Build task-specific prompt"""
